@@ -82,7 +82,7 @@ services:
   client:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.client
       target: dev
     restart: unless-stopped
     environment:
