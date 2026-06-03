@@ -18,6 +18,7 @@ import { observationsRouter } from "./rest/observations.routes.js";
 
 export async function createApp() {
   const app = express();
+  app.set("trust proxy", 1); // Required when behind Railway/Vercel reverse proxy for secure cookies
   const sessionIdleMs = Number(process.env.SESSION_IDLE_MS ?? 15 * 60 * 1000);
   const cookieSecure = process.env.COOKIE_SECURE === "true" || process.env.HTTPS === "true";
   const sameSite = cookieSecure ? "none" : "lax";
