@@ -14,7 +14,10 @@ function getTransport() {
   }
 
   _transport = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,   // STARTTLS on port 587
+    family: 4,       // force IPv4 – Railway does not support IPv6 outbound
     auth: { user, pass },
   });
   return _transport;
