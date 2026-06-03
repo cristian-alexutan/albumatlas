@@ -12,12 +12,12 @@ const labelClassName = "mb-2 block text-lg font-medium text-zinc-800";
 export default function RecoverPage() {
   const router = useRouter();
   const { startPasswordRecovery, completePasswordRecovery } = useAuth();
-  const [identifier, setIdentifier] = useState("");
-  const [emailCode, setEmailCode] = useState("");
-  const [smsCode, setSmsCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
-  const [error, setError] = useState("");
+  const [identifier,   setIdentifier  ] = useState("");
+  const [emailCode,    setEmailCode   ] = useState("");
+  const [totpCode,     setTotpCode    ] = useState("");
+  const [newPassword,  setNewPassword ] = useState("");
+  const [challenge,    setChallenge   ] = useState<LoginChallenge | null>(null);
+  const [error,        setError       ] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -26,7 +26,7 @@ export default function RecoverPage() {
     setIsSubmitting(true);
 
     const result = challenge
-      ? await completePasswordRecovery(challenge.challengeId, emailCode, smsCode, newPassword)
+      ? await completePasswordRecovery(challenge.challengeId, emailCode, totpCode, newPassword)
       : await startPasswordRecovery(identifier);
 
     if (!result.ok && "mfaRequired" in result) {
@@ -62,28 +62,46 @@ export default function RecoverPage() {
               ) : (
                 <>
                   <p className="text-sm text-zinc-600">
-                    Enter the email code sent to {challenge.emailHint ?? "your email"} and the SMS code sent to {challenge.phoneHint ?? "your phone"}.
+                    A verification code has been sent to {challenge.emailHint ?? "your email"}.
+                    Also open your authenticator app for the second code.
                   </p>
 
-                  {challenge.devEmailCode && challenge.devSmsCode ? (
-                    <p className="text-sm text-zinc-600">
-                      Dev codes: email {challenge.devEmailCode}, SMS {challenge.devSmsCode}
+                  {challenge.devEmailCode ? (
+                    <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <strong>Dev mode</strong> — email code: <code>{challenge.devEmailCode}</code>
                     </p>
                   ) : null}
 
                   <label className="block">
                     <span className={labelClassName}>Email code</span>
-                    <input inputMode="numeric" value={emailCode} onChange={(event) => setEmailCode(event.target.value)} className={inputClassName} />
+                    <input
+                      inputMode="numeric"
+                      value={emailCode}
+                      onChange={(event) => setEmailCode(event.target.value)}
+                      className={inputClassName}
+                      placeholder="6-digit code from your email"
+                    />
                   </label>
 
                   <label className="block">
-                    <span className={labelClassName}>SMS code</span>
-                    <input inputMode="numeric" value={smsCode} onChange={(event) => setSmsCode(event.target.value)} className={inputClassName} />
+                    <span className={labelClassName}>Authenticator code</span>
+                    <input
+                      inputMode="numeric"
+                      value={totpCode}
+                      onChange={(event) => setTotpCode(event.target.value)}
+                      className={inputClassName}
+                      placeholder="6-digit code from Google Authenticator"
+                    />
                   </label>
 
                   <label className="block">
                     <span className={labelClassName}>New password</span>
-                    <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className={inputClassName} />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      className={inputClassName}
+                    />
                   </label>
                 </>
               )}
@@ -95,7 +113,7 @@ export default function RecoverPage() {
                 disabled={isSubmitting}
                 className="h-12 w-full bg-zinc-700 text-lg font-semibold text-zinc-100 transition-colors hover:bg-zinc-800"
               >
-                {isSubmitting ? "Working..." : challenge ? "Reset password" : "Send codes"}
+                {isSubmitting ? "Working..." : challenge ? "Reset password" : "Send code"}
               </button>
             </form>
           </section>

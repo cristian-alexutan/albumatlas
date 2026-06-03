@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [username,     setUsername    ] = useState("");
   const [password,     setPassword    ] = useState("");
   const [emailCode,    setEmailCode   ] = useState("");
-  const [smsCode,      setSmsCode      ] = useState("");
+  const [totpCode,     setTotpCode    ] = useState("");
   const [challenge,    setChallenge   ] = useState<LoginChallenge | null>(null);
   const [error,        setError       ] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,7 +23,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     const result = challenge
-      ? await verifyLogin(challenge.challengeId, emailCode, smsCode)
+      ? await verifyLogin(challenge.challengeId, emailCode, totpCode)
       : await signIn(username, password);
 
     if (!result.ok && "mfaRequired" in result) {
@@ -46,14 +46,14 @@ export default function LoginPage() {
       username={username}
       password={password}
       emailCode={emailCode}
-      smsCode={smsCode}
+      totpCode={totpCode}
       challenge={challenge}
       error={error}
       isSubmitting={isSubmitting}
       onUsernameChange={setUsername}
       onPasswordChange={setPassword}
       onEmailCodeChange={setEmailCode}
-      onSmsCodeChange={setSmsCode}
+      onTotpCodeChange={setTotpCode}
       onSubmit={handleSubmit}
     />
   );

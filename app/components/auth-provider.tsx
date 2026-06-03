@@ -21,9 +21,7 @@ export type LoginChallenge = {
   challengeId:   string;
   expiresAt:     number;
   emailHint?:    string;
-  phoneHint?:    string;
   devEmailCode?: string;
-  devSmsCode?:   string;
 };
 
 type AuthSuccess = { ok: true };
@@ -34,17 +32,22 @@ type LoginStartResult = AuthFailure | {
   challenge:    LoginChallenge;
 };
 
+export type RegisterResult = AuthSuccess & {
+  totpSecret?: string;
+  totpQr?: string;
+};
+
 type AuthContextValue = {
   currentUser: AuthUser | null;
   isLoading:   boolean;
   signIn:       (username: string, password: string) => Promise<AuthSuccess | LoginStartResult>;
-  verifyLogin:  (challengeId: string, emailCode: string, smsCode: string) => Promise<AuthSuccess | AuthFailure>;
-  registerUser: (payload: RegisterPayload) => Promise<AuthSuccess | AuthFailure>;
+  verifyLogin:  (challengeId: string, emailCode: string, totpCode: string) => Promise<AuthSuccess | AuthFailure>;
+  registerUser: (payload: RegisterPayload) => Promise<RegisterResult | AuthFailure>;
   startPasswordRecovery: (identifier: string) => Promise<LoginStartResult>;
   completePasswordRecovery: (
     challengeId: string,
     emailCode: string,
-    smsCode: string,
+    totpCode: string,
     newPassword: string,
   ) => Promise<AuthSuccess | AuthFailure>;
   signOut: () => Promise<void>;
@@ -55,10 +58,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const fallbackAuthContext: AuthContextValue = {
   currentUser: null,
   isLoading: false,
-  signIn: async () => ({ ok: false, message: "Auth provider is not mounted." }),
-  verifyLogin: async () => ({ ok: false, message: "Auth provider is not mounted." }),
-  registerUser: async () => ({ ok: false, message: "Auth provider is not mounted." }),
-  startPasswordRecovery: async () => ({ ok: false, message: "Auth provider is not mounted." }),
+  signIn:                   async () => ({ ok: false, message: "Auth provider is not mounted." }),
+  verifyLogin:              async () => ({ ok: false, message: "Auth provider is not mounted." }),
+  registerUser:             async () => ({ ok: false, message: "Auth provider is not mounted." }),
+  startPasswordRecovery:    async () => ({ ok: false, message: "Auth provider is not mounted." }),
   completePasswordRecovery: async () => ({ ok: false, message: "Auth provider is not mounted." }),
   signOut: async () => {},
 };
@@ -112,8 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false as const, message: await readError(res, "Login failed.") };
   }
 
-  async function verifyLogin(challengeId: string, emailCode: string, smsCode: string) {
-    const res = await apiPost("/api/auth/login/verify", { challengeId, emailCode, smsCode });
+  async function verifyLogin(challengeId: string, emailCode: string, totpCode: string) {
+    const res = await apiPost("/api/auth/login/verify", { challengeId, emailCode, totpCode });
     if (res.ok) {
       const data = await res.json() as { id: string; username: string; role: string };
       setCurrentUser(toAuthUser(data));
@@ -125,9 +128,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function registerUser(payload: RegisterPayload) {
     const res = await apiPost("/api/auth/register", payload);
     if (res.ok) {
-      const data = await res.json() as { id: string; username: string; role: string };
+      const data = await res.json() as {
+        id: string; username: string; role: string;
+        totpSecret?: string; totpQr?: string;
+      };
       setCurrentUser(toAuthUser(data));
-      return { ok: true as const };
+      return { ok: true as const, totpSecret: data.totpSecret, totpQr: data.totpQr };
     }
     return { ok: false as const, message: await readError(res, "Registration failed.") };
   }
@@ -144,13 +150,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function completePasswordRecovery(
     challengeId: string,
     emailCode: string,
-    smsCode: string,
+    totpCode: string,
     newPassword: string,
   ) {
     const res = await apiPost("/api/auth/recovery/complete", {
       challengeId,
       emailCode,
-      smsCode,
+      totpCode,
       newPassword,
     });
     if (res.ok) return { ok: true as const };

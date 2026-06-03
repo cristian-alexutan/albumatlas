@@ -99,6 +99,7 @@ model User {
   email        String?            @unique @db.VarChar(200)
   password     String             @db.VarChar(200)
   role         Role               @default(USER)
+  totpSecret   String?            @db.VarChar(64)  // Base32 TOTP secret for Google Authenticator
   reviews      Review[]
   logs         UserLog[]
   observations ObservationEntry[]

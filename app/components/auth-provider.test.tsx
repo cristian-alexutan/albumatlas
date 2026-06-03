@@ -19,7 +19,7 @@ function AuthHarness() {
       await verifyLogin(
         result.challenge.challengeId,
         result.challenge.devEmailCode ?? "",
-        result.challenge.devSmsCode ?? "",
+        "000000",  // placeholder TOTP – tests mock the server response
       );
     }
   }
@@ -65,7 +65,6 @@ describe("AuthProvider", () => {
         challengeId: "challenge-1",
         expiresAt: Date.now() + 60_000,
         devEmailCode: "123456",
-        devSmsCode: "654321",
       }, { status: 202 }))
       .mockResolvedValueOnce(jsonResponse({
         id: "seed_admin",

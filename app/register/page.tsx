@@ -17,6 +17,10 @@ export default function RegisterPage() {
   const [error,           setError          ] = useState("");
   const [isSubmitting,    setIsSubmitting   ] = useState(false);
 
+  // After successful registration, hold the TOTP setup info so we can show the QR code.
+  const [totpQr,     setTotpQr    ] = useState<string | null>(null);
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -45,7 +49,26 @@ export default function RegisterPage() {
       return;
     }
 
+    // If the server returned TOTP setup info, show the QR code step.
+    if (result.totpQr) {
+      setTotpQr(result.totpQr);
+      setTotpSecret(result.totpSecret ?? null);
+      setIsSubmitting(false);
+      return;
+    }
+
     router.push("/browse");
+  }
+
+  // TOTP setup step: user scans QR code and clicks Continue.
+  if (totpQr) {
+    return (
+      <RegisterView
+        totpQr={totpQr}
+        totpSecret={totpSecret ?? ""}
+        onTotpDone={() => router.push("/browse")}
+      />
+    );
   }
 
   return (

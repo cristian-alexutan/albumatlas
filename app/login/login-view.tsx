@@ -10,14 +10,14 @@ type LoginViewProps = {
   username: string;
   password: string;
   emailCode: string;
-  smsCode: string;
+  totpCode: string;
   challenge: LoginChallenge | null;
   error: string;
   isSubmitting: boolean;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onEmailCodeChange: (value: string) => void;
-  onSmsCodeChange: (value: string) => void;
+  onTotpCodeChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -25,14 +25,14 @@ export function LoginView({
   username,
   password,
   emailCode,
-  smsCode,
+  totpCode,
   challenge,
   error,
   isSubmitting,
   onUsernameChange,
   onPasswordChange,
   onEmailCodeChange,
-  onSmsCodeChange,
+  onTotpCodeChange,
   onSubmit,
 }: LoginViewProps) {
   return (
@@ -65,12 +65,13 @@ export function LoginView({
               ) : (
                 <>
                   <p className="text-sm text-zinc-600">
-                    Enter the email code sent to {challenge.emailHint ?? "your email"} and the SMS code sent to {challenge.phoneHint ?? "your phone"}.
+                    A verification code has been sent to {challenge.emailHint ?? "your email"}.
+                    Open your authenticator app for the second code.
                   </p>
 
-                  {challenge.devEmailCode && challenge.devSmsCode ? (
-                    <p className="text-sm text-zinc-600">
-                      Dev codes: email {challenge.devEmailCode}, SMS {challenge.devSmsCode}
+                  {challenge.devEmailCode ? (
+                    <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <strong>Dev mode</strong> — email code: <code>{challenge.devEmailCode}</code>
                     </p>
                   ) : null}
 
@@ -81,16 +82,18 @@ export function LoginView({
                       value={emailCode}
                       onChange={(event) => onEmailCodeChange(event.target.value)}
                       className={inputClassName}
+                      placeholder="6-digit code from your email"
                     />
                   </label>
 
                   <label className="block">
-                    <span className={labelClassName}>SMS code</span>
+                    <span className={labelClassName}>Authenticator code</span>
                     <input
                       inputMode="numeric"
-                      value={smsCode}
-                      onChange={(event) => onSmsCodeChange(event.target.value)}
+                      value={totpCode}
+                      onChange={(event) => onTotpCodeChange(event.target.value)}
                       className={inputClassName}
+                      placeholder="6-digit code from Google Authenticator"
                     />
                   </label>
                 </>
