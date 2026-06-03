@@ -1,26 +1,16 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-let _transport: ReturnType<typeof nodemailer.createTransport> | null = null;
+let _resend: Resend | null = null;
 
-function getTransport() {
-  if (_transport) return _transport;
-
-  const user = process.env.GMAIL_ADDRESS;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-
-  if (!user || !pass) {
-    console.warn("[mailer] GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set – emails will be logged to console only.");
+function getResend(): Resend | null {
+  if (_resend) return _resend;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[mailer] RESEND_API_KEY not set – emails will be logged to console only.");
     return null;
   }
-
-  _transport = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,   // STARTTLS on port 587
-    family: 4,       // force IPv4 – Railway does not support IPv6 outbound
-    auth: { user, pass },
-  });
-  return _transport;
+  _resend = new Resend(apiKey);
+  return _resend;
 }
 
 export async function sendVerificationEmail(
@@ -49,18 +39,17 @@ export async function sendVerificationEmail(
     `This code expires in 5 minutes. If you did not request this, please ignore this email.</p>` +
     `</div>`;
 
-  const transport = getTransport();
+  const resend = getResend();
 
-  if (!transport) {
-    // Dev fallback: just print it
+  if (!resend) {
     console.info(`[mailer] ${purpose} email code for <${to}>: ${code}`);
     return;
   }
 
   try {
-    await transport.sendMail({
-      from: `"AlbumAtlas" <${process.env.GMAIL_ADDRESS}>`,
-      to,
+    await resend.emails.send({
+      from: "AlbumAtlas <onboarding@resend.dev>",
+      to: [to],
       subject,
       text,
       html,
@@ -68,7 +57,6 @@ export async function sendVerificationEmail(
     console.info(`[mailer] Sent ${purpose} verification code to ${to}`);
   } catch (err) {
     console.error("[mailer] Failed to send email:", err);
-    // Don't rethrow – fall back to console so auth still works if email is misconfigured
     console.info(`[mailer] Fallback – ${purpose} code for <${to}>: ${code}`);
   }
 }
