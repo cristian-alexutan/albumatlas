@@ -7,6 +7,7 @@ import { attachChatWebSocketServer } from "./chat-ws.js";
 import { repository } from "./repository.js";
 import { loadSeed, seedRepository } from "./seed.js";
 import { AlbumService, setService } from "./service.js";
+import { hashPassword } from "./auth/auth-service.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const INTERNAL_HTTP_PORT = process.env.INTERNAL_HTTP_PORT
@@ -68,10 +69,27 @@ async function main() {
     if (!adminExists) {
       console.log("👤  Seeding users and permissions…");
 
+      // Use the same fixed TOTP secrets as auth-service.ts seed defaults so
+      // developers can scan them once and reuse across restarts.
+      const SEED_ADMIN_TOTP = process.env.SEED_ADMIN_TOTP ?? "JBSWY3DPEHPK3PXP";
+      const SEED_USER_TOTP  = process.env.SEED_USER_TOTP  ?? "NBSWY3DPEHPK3PXP";
+
       await prismaClient.user.createMany({
         data: [
-          { username: "admin", password: "admin", role: "ADMIN" },
-          { username: "user",  password: "user",  role: "USER"  },
+          {
+            username:   "admin",
+            email:      "admin@albumatlas.local",
+            password:   hashPassword("admin"),
+            role:       "ADMIN",
+            totpSecret: SEED_ADMIN_TOTP,
+          },
+          {
+            username:   "user",
+            email:      "user@albumatlas.local",
+            password:   hashPassword("user"),
+            role:       "USER",
+            totpSecret: SEED_USER_TOTP,
+          },
         ],
         skipDuplicates: true,
       });
