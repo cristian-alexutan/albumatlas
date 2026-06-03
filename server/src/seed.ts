@@ -25,7 +25,7 @@ function approxTrackDuration(title: string): number {
 
 export function loadSeed(): { albums: Album[]; tracks: Track[] } {
   const here = dirname(fileURLToPath(import.meta.url));
-  const seedPath = resolve(here, "../../data/albums.json");
+  const seedPath = resolve(here, "../data/albums.json");
   const raw = readFileSync(seedPath, "utf-8");
   const seed: SeedAlbum[] = JSON.parse(raw);
 
