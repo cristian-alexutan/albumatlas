@@ -1,3 +1,6 @@
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first"); // Railway has no IPv6 outbound – force IPv4 for all DNS lookups
+
 import http from "node:http";
 import https from "node:https";
 import { readFileSync } from "node:fs";
