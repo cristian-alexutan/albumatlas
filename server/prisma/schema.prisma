@@ -1,0 +1,231 @@
+// Prisma schema – AlbumAtlas
+// ORM: Prisma  |  Database: PostgreSQL
+//
+// 3NF proof
+// ─────────────────────────────────────────────────────────────────────────────
+// albums
+//   PK: id (TEXT)
+//   All non-key columns (title, artist, year, genre, coverUrl, description,
+//   rating, featured) depend *directly and only* on id.
+//   • 1NF: atomic values, single-column PK ✓
+//   • 2NF: no partial-key dependency (PK is one column) ✓
+//   • 3NF: no transitive dependency – no non-key attribute determines another ✓
+//
+// tracks
+//   PK: id (TEXT)
+//   albumId is a FK referencing albums(id); it is NOT a determinant within
+//   this table – title, position, durationSec depend solely on id.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓  (albumId → album details live in albums table)
+//
+// users / permissions / role_permissions / reviews
+//   See inline comments below.
+//
+// user_logs
+//   PK: id (UUID)
+//   userId is a nullable FK (null for unauthenticated events, e.g. LOGIN_FAILED
+//   before the username is known).  All other columns – username, role, action,
+//   details, ipAddress, createdAt – depend solely on id.
+//   username is denormalised for durability: logs stay readable even after the
+//   user row is deleted (ON DELETE SET NULL on userId).
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+//
+// observation_list
+//   PK: id (UUID)
+//   userId FK references users(id); reason, details, severity, isResolved,
+//   resolvedAt, resolvedBy, timestamps all depend solely on id.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// Every user-initiated action that the audit log records.
+enum ActionType {
+  // Authentication
+  LOGIN
+  LOGOUT
+  REGISTER
+  LOGIN_FAILED        // failed attempt – userId may be null
+
+  // Album management (admin only)
+  CREATE_ALBUM
+  UPDATE_ALBUM
+  DELETE_ALBUM
+
+  // Reviews
+  CREATE_REVIEW
+  DELETE_REVIEW
+
+  // Admin actions
+  RESOLVE_OBSERVATION
+  VIEW_LOGS
+  VIEW_OBSERVATIONS
+}
+
+// How dangerous the malicious-behaviour detector considers a flagged event.
+enum ObservationSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core domain models
+// ─────────────────────────────────────────────────────────────────────────────
+
+// users
+//   PK: id (UUID)
+//   username, email, password, role, timestamps depend only on id.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+model User {
+  id           String             @id @default(uuid())
+  username     String             @unique @db.VarChar(100)
+  email        String?            @unique @db.VarChar(200)
+  password     String             @db.VarChar(200)
+  role         Role               @default(USER)
+  reviews      Review[]
+  logs         UserLog[]
+  observations ObservationEntry[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@map("users")
+}
+
+// permissions
+//   PK: id  |  name is a candidate key; description depends solely on id.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique @db.VarChar(100)
+  description String?          @db.VarChar(300)
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+// role_permissions
+//   Composite PK: (role, permissionId) – pure junction, no non-key attributes.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+model RolePermission {
+  role         Role
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([role, permissionId])
+  @@map("role_permissions")
+}
+
+model Album {
+  id          String  @id
+  title       String  @db.VarChar(200)
+  artist      String  @db.VarChar(200)
+  year        Int
+  genre       String  @db.VarChar(80)
+  coverUrl    String  @db.VarChar(2048)
+  description String  @default("") @db.Text
+  rating      Float   @default(0)
+  featured    Boolean @default(false)
+
+  tracks  Track[]
+  reviews Review[]
+
+  @@map("albums")
+}
+
+model Track {
+  id          String @id
+  albumId     String
+  title       String @db.VarChar(200)
+  position    Int
+  durationSec Int
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@map("tracks")
+}
+
+// reviews
+//   PK: id  |  albumId + userId is a unique constraint (one review per user per album).
+//   rating, comment, timestamps depend solely on id.
+//   • 1NF ✓  • 2NF ✓  • 3NF ✓
+model Review {
+  id        String   @id @default(uuid())
+  albumId   String
+  userId    String
+  rating    Int
+  comment   String   @db.Text
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([albumId, userId])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logging & security models
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Immutable audit trail of every significant user action.
+// userId is nullable so we can record unauthenticated events (e.g. failed logins).
+// ON DELETE SET NULL keeps the log entry intact after a user is removed.
+model UserLog {
+  id        String     @id @default(uuid())
+  userId    String?
+  username  String?    @db.VarChar(100) // snapshot – survives user deletion
+  role      Role?
+  action    ActionType
+  details   Json?                       // arbitrary context (albumId, rating, …)
+  ipAddress String?    @db.VarChar(45)  // IPv4 or IPv6
+  createdAt DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId, action, createdAt])
+  @@map("user_logs")
+}
+
+// Users whose behaviour has been flagged as potentially malicious.
+// One open entry per (userId, reason); resolved entries can be superseded.
+model ObservationEntry {
+  id         String              @id @default(uuid())
+  userId     String
+  username   String              @db.VarChar(100)  // snapshot
+  reason     String              @db.VarChar(200)  // rule name, e.g. NEGATIVE_REVIEW_SPAM
+  details    Json?                                  // evidence: counts, windows, log IDs
+  severity   ObservationSeverity @default(LOW)
+  isResolved Boolean             @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?             @db.VarChar(100)  // admin username
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isResolved])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("observation_list")
+}

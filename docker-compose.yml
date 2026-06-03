@@ -1,0 +1,108 @@
+# ── AlbumAtlas – Docker Compose (db + mongo + server) ────────────────────────
+#
+# Services:
+#   db      – PostgreSQL 16 (relational database – albums, users, reviews)
+#   mongo   – MongoDB 7    (NoSQL – chat messages)
+#   server  – Express + Prisma API (port 4000)
+#
+# Run the Next.js client locally with:  npm run dev
+#
+# Usage:
+#   docker compose up --build          # build & start everything
+#   docker compose up --build server   # rebuild server only
+#   docker compose down -v             # stop + remove volumes
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: albumatlas
+      POSTGRES_USER: albumatlas
+      POSTGRES_PASSWORD: albumatlas123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U albumatlas -d albumatlas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── MongoDB (chat messages) ─────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API server ──────────────────────────────────────────────────────────────
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://albumatlas:albumatlas123@db:5432/albumatlas
+      MONGODB_URL: mongodb://mongo:27017/albumatlas
+      SESSION_SECRET: change-me-in-production
+      PORT: 4000
+      NODE_ENV: production
+      HTTPS: "true"
+      COOKIE_SECURE: "true"
+      HTTPS_KEY_PATH: /certs/key.pem
+      HTTPS_CERT_PATH: /certs/cert.pem
+      INTERNAL_HTTP_PORT: 4001
+      CORS_ORIGIN: https://${ALBUMATLAS_LAN_IP:-192.168.9.91}:3000
+      # CORS_ORIGIN not set → server reflects any request origin (dev-friendly)
+      # Set to "http://your-client-url" in production to lock it down
+    ports:
+      - "4000:4000"
+      - "127.0.0.1:4001:4001"
+    volumes:
+      - ./certs:/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  # ── Next.js client ─────────────────────────────────────────────────────────
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      INTERNAL_API_URL: http://server:4001
+      ALBUMATLAS_LAN_IP: ${ALBUMATLAS_LAN_IP:-192.168.9.91}
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./certs:/certs:ro
+    command:
+      - npm
+      - run
+      - dev
+    depends_on:
+      - server
+
+volumes:
+  pgdata:
+    driver: local
+  mongodata:
+    driver: local

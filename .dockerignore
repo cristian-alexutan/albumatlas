@@ -1,0 +1,28 @@
+# Node modules are reinstalled inside the container
+node_modules
+server/node_modules
+
+# Next.js build output (rebuilt inside container)
+.next
+server/dist
+
+# Test artefacts
+coverage
+server/coverage
+playwright-report
+test-results
+
+# Dev files
+.env.local
+.env
+server/.env
+*.log
+
+# Git
+.git
+.gitignore
+
+# Editor
+.idea
+.vscode
+*.tsbuildinfo

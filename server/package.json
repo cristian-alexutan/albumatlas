@@ -1,0 +1,53 @@
+{
+  "name": "albumatlas-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:auth": "vitest run tests/auth.routes.test.ts",
+    "test:db": "cross-env DATABASE_URL=postgresql://albumatlas:albumatlas123@localhost:5432/albumatlas vitest run tests/prisma-repository.test.ts",
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force",
+    "postinstall": "prisma generate",
+    "chat:clear": "tsx src/clear-chat.ts"
+  },
+  "dependencies": {
+    "@apollo/server": "^5.5.0",
+    "@as-integrations/express5": "^1.1.2",
+    "@faker-js/faker": "^9.3.0",
+    "@prisma/client": "^6.3.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "graphql": "^16.11.0",
+    "graphql-ws": "^6.0.4",
+    "mongodb": "^6.13.0",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/express-session": "^1.18.1",
+    "@types/node": "^20.0.0",
+    "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.5.13",
+    "@vitest/coverage-v8": "^2.1.8",
+    "cross-env": "^7.0.3",
+    "prisma": "^6.3.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
