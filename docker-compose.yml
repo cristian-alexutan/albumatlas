@@ -51,7 +51,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: server/Dockerfile.server
+      dockerfile: docker/server.dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://albumatlas:albumatlas123@db:5432/albumatlas
@@ -82,7 +82,7 @@ services:
   client:
     build:
       context: .
-      dockerfile: Dockerfile.client
+      dockerfile: docker/frontend.dockerfile
       target: dev
     restart: unless-stopped
     environment:
